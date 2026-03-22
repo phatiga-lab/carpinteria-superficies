@@ -6,7 +6,7 @@ import math
 # ==============================================================================
 # CONFIGURACIÓN DE PÁGINA
 # ==============================================================================
-st.set_page_config(page_title="CarpinterIA Superficies V0.6", page_icon="🪑", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="CarpinterIA Superficies V0.7", page_icon="🪑", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
@@ -46,7 +46,7 @@ def ui_config_caja(key_prefix, h_util_caja):
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3063/3063080.png", width=60)
     st.title("CarpinterIA")
-    st.caption("v0.6 - Colisiones y Cantos")
+    st.caption("v0.7 - Clean UI & Tooltips")
     st.divider()
 
     with st.expander("🪵 1. Materiales y Espesores", expanded=True):
@@ -129,7 +129,6 @@ with col_controles:
     with st.container(border=True):
         st.markdown("🧱 **Accesorios y Faldón**")
         
-        # LOGICA DE BANDEJA TECLADO
         st.markdown("**Bandeja Portateclado**")
         pata_L_presente = (tipo_izq == "Pata en 'L'" or tipo_der == "Pata en 'L'")
         
@@ -143,15 +142,11 @@ with col_controles:
         c_f1, c_f2 = st.columns([2, 1])
         h_faldon = c_f1.slider("Altura Faldón Trasero (mm)", 150, int(h_estructura), 300, step=10)
         
-        # CÁLCULO DE LÍMITE FÍSICO DE COLISIÓN (REMETIDO)
-        max_remetido_base = int(prof_tapa / 2) # Como máximo hasta la mitad de la tapa
+        max_remetido_base = int(prof_tapa / 2) 
         
         if tiene_bandeja:
-            # estructura_prof es el espacio total de las patas.
-            # 350mm bandeja + 20mm luz seguridad
             max_remetido_bandeja = int(estructura_prof - 370)
             max_remetido_permitido = min(max_remetido_base, max_remetido_bandeja)
-            
             if max_remetido_permitido < 0:
                 st.error("❌ El escritorio es muy poco profundo para acomodar bandeja y faldón. Achique vuelos o aumente profundidad.")
                 max_remetido_permitido = 0
@@ -177,12 +172,21 @@ with col_visual:
     color_caja_carcasa = "#8B4513"; color_caja_frente = "#AED6F1"
     
     def dibujar_placa(x0, x1, y0, y1, z0, z1, color, nombre, opacidad=1):
+        # Calcular dimensiones absolutas para el tooltip limpio
+        dim_x = int(abs(x1 - x0))
+        dim_y = int(abs(y1 - y0))
+        dim_z = int(abs(z1 - z0))
+        
+        # Etiqueta HTML formateada
+        hover_text = f"<b>{nombre}</b><br>{dim_x} x {dim_y} x {dim_z} mm"
+
         fig.add_trace(go.Mesh3d(x=[x0,x1,x1,x0,x0,x1,x1,x0], y=[y0,y0,y1,y1,y0,y0,y1,y1], z=[z0,z0,z0,z0,z1,z1,z1,z1],
             i=[7,0,0,0,4,4,3,3,7,2,6,6], j=[3,4,1,2,5,6,2,3,6,7,1,2], k=[0,7,2,3,6,7,1,0,2,5,5,1],
-            opacity=opacidad, color=color, flatshading=True, name=nombre))
+            opacity=opacidad, color=color, flatshading=True, name=nombre,
+            hoverinfo="text", text=hover_text)) # APLICACIÓN DEL HOVER LIMPIO
 
     # Tapa
-    dibujar_placa(tapa_x0, tapa_x1, tapa_y0, tapa_y1, total_alto-espesor_tapa, total_alto, color_tapa, "Tapa")
+    dibujar_placa(tapa_x0, tapa_x1, tapa_y0, tapa_y1, total_alto-espesor_tapa, total_alto, color_tapa, "Tapa Escritorio")
 
     def interior_conceptual(x0, x1, y0, y1, z_base, h_util, config):
         func = config.get("funcion")
@@ -190,68 +194,76 @@ with col_visual:
             cant = config.get("cant", 1); hu_frente = h_util / cant
             for k in range(cant):
                 z_f_0 = z_base + (k * hu_frente) + 2; z_f_1 = z_base + ((k+1) * hu_frente) - 2
-                dibujar_placa(x0, x1, y0-2, y0+5, z_f_0, z_f_1, color_caja_frente, f"Frente Caj C{k+1}", 0.7)
+                dibujar_placa(x0, x1, y0-2, y0+5, z_f_0, z_f_1, color_caja_frente, f"Frente Cajón {k+1}", 0.7)
         elif func == "Puerta":
-            dibujar_placa(x0, x1, y0-2, y0+5, z_base+2, z_base+h_util-2, color_caja_frente, "Frente Puerta", 0.7)
+            dibujar_placa(x0, x1, y0-2, y0+5, z_base+2, z_base+h_util-2, color_caja_frente, "Puerta", 0.7)
             din = config.get("interior", {})
             if din.get("tipo") == "Estantes":
                 cant_e = din.get("cant", 1); p = h_util / (cant_e + 1)
                 for k in range(cant_e):
                     y_e = z_base + (p * (k+1))
                     fig.add_shape(type="line", x0=x0+5, y0=y0+10, x1=x1-5, y1=y1-10, xref="x", yref="y")
-                    dibujar_placa(x0+5, x1-5, y0+10, y1-10, y_e, y_e+espesor_estruc, color_estructura, f"Estante {k+1}", 0.5) 
+                    dibujar_placa(x0+5, x1-5, y0+10, y1-10, y_e, y_e+espesor_estruc, color_estructura, f"Estante Int {k+1}", 0.5) 
 
     # Izq
-    if tipo_izq == "Panel Simple": dibujar_placa(estructura_x0, estructura_x0 + espesor_estruc, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_estructura, "Lat Izq")
+    if tipo_izq == "Panel Simple": dibujar_placa(estructura_x0, estructura_x0 + espesor_estruc, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_estructura, "Lateral Izquierdo")
     elif tipo_izq == "Pata en 'L'":
-        dibujar_placa(estructura_x0, estructura_x0 + espesor_estruc, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_estructura, "L-Lat Izq")
-        dibujar_placa(estructura_x0 + espesor_estruc, estructura_x0 + data_izq["ancho_l"], estructura_y0, estructura_y0 + espesor_estruc, zocalo, total_alto-espesor_tapa, color_estructura, "L-Front Izq")
+        dibujar_placa(estructura_x0, estructura_x0 + espesor_estruc, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_estructura, "L-Lat Izquierdo")
+        dibujar_placa(estructura_x0 + espesor_estruc, estructura_x0 + data_izq["ancho_l"], estructura_y0, estructura_y0 + espesor_estruc, zocalo, total_alto-espesor_tapa, color_estructura, "L-Front Izquierdo")
     elif tipo_izq == "Módulo Caja":
         w_c = data_izq["ancho_caja"]
-        dibujar_placa(estructura_x0, estructura_x0 + w_c, estructura_y0, estructura_y1, zocalo, zocalo + espesor_estruc, color_caja_carcasa, "Piso Izq")
-        dibujar_placa(estructura_x0, estructura_x0 + w_c, estructura_y0, estructura_y1, total_alto-espesor_tapa-espesor_estruc, total_alto-espesor_tapa, color_caja_carcasa, "Techo Izq")
-        dibujar_placa(estructura_x0, estructura_x0 + espesor_estruc, estructura_y0, estructura_y1, zocalo + espesor_estruc, total_alto-espesor_tapa-espesor_estruc, color_caja_carcasa, "Lat Ext Izq")
-        dibujar_placa(estructura_x0 + w_c - espesor_estruc, estructura_x0 + w_c, estructura_y0, estructura_y1, zocalo + espesor_estruc, total_alto-espesor_tapa-espesor_estruc, color_caja_carcasa, "Lat Int Izq")
+        dibujar_placa(estructura_x0, estructura_x0 + w_c, estructura_y0, estructura_y1, zocalo, zocalo + espesor_estruc, color_caja_carcasa, "Piso Caja Izq")
+        dibujar_placa(estructura_x0, estructura_x0 + w_c, estructura_y0, estructura_y1, total_alto-espesor_tapa-espesor_estruc, total_alto-espesor_tapa, color_caja_carcasa, "Techo Caja Izq")
+        dibujar_placa(estructura_x0, estructura_x0 + espesor_estruc, estructura_y0, estructura_y1, zocalo + espesor_estruc, total_alto-espesor_tapa-espesor_estruc, color_caja_carcasa, "Lat Ext Caja Izq")
+        dibujar_placa(estructura_x0 + w_c - espesor_estruc, estructura_x0 + w_c, estructura_y0, estructura_y1, zocalo + espesor_estruc, total_alto-espesor_tapa-espesor_estruc, color_caja_carcasa, "Lat Int Caja Izq")
         interior_conceptual(estructura_x0 + espesor_estruc, estructura_x0 + w_c - espesor_estruc, estructura_y0, estructura_y1, zocalo + espesor_estruc, h_util_caja_apoyo, data_izq.get("config", {}))
 
     # Der
-    if tipo_der == "Panel Simple": dibujar_placa(estructura_x1 - espesor_estruc, estructura_x1, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_estructura, "Lat Der")
+    if tipo_der == "Panel Simple": dibujar_placa(estructura_x1 - espesor_estruc, estructura_x1, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_estructura, "Lateral Derecho")
     elif tipo_der == "Pata en 'L'":
-        dibujar_placa(estructura_x1 - espesor_estruc, estructura_x1, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_estructura, "L-Lat Der")
-        dibujar_placa(estructura_x1 - data_der["ancho_l"], estructura_x1 - espesor_estruc, estructura_y0, estructura_y0 + espesor_estruc, zocalo, total_alto-espesor_tapa, color_estructura, "L-Front Der")
+        dibujar_placa(estructura_x1 - espesor_estruc, estructura_x1, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_estructura, "L-Lat Derecho")
+        dibujar_placa(estructura_x1 - data_der["ancho_l"], estructura_x1 - espesor_estruc, estructura_y0, estructura_y0 + espesor_estruc, zocalo, total_alto-espesor_tapa, color_estructura, "L-Front Derecho")
     elif tipo_der == "Módulo Caja":
         w_c = data_der["ancho_caja"]
-        dibujar_placa(estructura_x1 - w_c, estructura_x1, estructura_y0, estructura_y1, zocalo, zocalo + espesor_estruc, color_caja_carcasa, "Piso Der")
-        dibujar_placa(estructura_x1 - w_c, estructura_x1, estructura_y0, estructura_y1, total_alto-espesor_tapa-espesor_estruc, total_alto-espesor_tapa, color_caja_carcasa, "Techo Der")
-        dibujar_placa(estructura_x1 - w_c, estructura_x1 - w_c + espesor_estruc, estructura_y0, estructura_y1, zocalo + espesor_estruc, total_alto-espesor_tapa-espesor_estruc, color_caja_carcasa, "Lat Int Der")
-        dibujar_placa(estructura_x1 - espesor_estruc, estructura_x1, estructura_y0, estructura_y1, zocalo + espesor_estruc, total_alto-espesor_tapa-espesor_estruc, color_caja_carcasa, "Lat Ext Der")
+        dibujar_placa(estructura_x1 - w_c, estructura_x1, estructura_y0, estructura_y1, zocalo, zocalo + espesor_estruc, color_caja_carcasa, "Piso Caja Der")
+        dibujar_placa(estructura_x1 - w_c, estructura_x1, estructura_y0, estructura_y1, total_alto-espesor_tapa-espesor_estruc, total_alto-espesor_tapa, color_caja_carcasa, "Techo Caja Der")
+        dibujar_placa(estructura_x1 - w_c, estructura_x1 - w_c + espesor_estruc, estructura_y0, estructura_y1, zocalo + espesor_estruc, total_alto-espesor_tapa-espesor_estruc, color_caja_carcasa, "Lat Int Caja Der")
+        dibujar_placa(estructura_x1 - espesor_estruc, estructura_x1, estructura_y0, estructura_y1, zocalo + espesor_estruc, total_alto-espesor_tapa-espesor_estruc, color_caja_carcasa, "Lat Ext Caja Der")
         interior_conceptual(estructura_x1 - w_c + espesor_estruc, estructura_x1 - espesor_estruc, estructura_y0, estructura_y1, zocalo + espesor_estruc, h_util_caja_apoyo, data_der.get("config", {}))
 
     # Faldón y Espacios
     y_faldon_trasero = estructura_y1 - remetido_faldon
     inicio_faldon = estructura_x0 + (espesor_estruc if tipo_izq != "Módulo Caja" else data_izq["ancho_caja"])
     fin_faldon = estructura_x1 - (espesor_estruc if tipo_der != "Módulo Caja" else data_der["ancho_caja"])
-    dibujar_placa(inicio_faldon, fin_faldon, y_faldon_trasero - espesor_estruc, y_faldon_trasero, total_alto-espesor_tapa-h_faldon, total_alto-espesor_tapa, color_estructura, "Faldón")
+    dibujar_placa(inicio_faldon, fin_faldon, y_faldon_trasero - espesor_estruc, y_faldon_trasero, total_alto-espesor_tapa-h_faldon, total_alto-espesor_tapa, color_estructura, "Faldón Anti-pandeo")
 
     # Bandeja 3D
     if tiene_bandeja:
         z_bandeja = total_alto - espesor_tapa - 60 
-        dibujar_placa(inicio_faldon + 20, fin_faldon - 20, estructura_y0, estructura_y0 + 350, z_bandeja, z_bandeja + espesor_tapa, color_tapa, "Bandeja")
+        dibujar_placa(inicio_faldon + 20, fin_faldon - 20, estructura_y0, estructura_y0 + 350, z_bandeja, z_bandeja + espesor_tapa, color_tapa, "Bandeja Teclado")
 
+    # CONFIGURACIÓN DE ESCENA LIMPIA (SIN EJES NI FONDOS)
     max_dim = max(largo_tapa, total_alto)
+    
+    # Dict para ocultar completamente cada eje
+    no_axis = dict(showbackground=False, showgrid=False, zeroline=False, showticklabels=False, title="", visible=False)
+    
     fig.update_layout(
         scene=dict(
-            xaxis=dict(nticks=4, range=[-max_dim/2-100, max_dim/2+100], backgroundcolor="rgb(240, 240, 245)", gridcolor="white", showbackground=True),
-            yaxis=dict(nticks=4, range=[-max_dim/2-100, max_dim/2+100], backgroundcolor="rgb(245, 240, 245)", gridcolor="white", showbackground=True),
-            zaxis=dict(nticks=4, range=[0, max_dim+100], backgroundcolor="rgb(245, 245, 240)", gridcolor="white", showbackground=True),
+            xaxis=no_axis,
+            yaxis=no_axis,
+            zaxis=no_axis,
             aspectmode='data'
         ),
-        margin=dict(r=0, l=0, b=0, t=0), scene_camera=dict(eye=dict(x=1.5, y=-1.5, z=0.8))
+        margin=dict(r=0, l=0, b=0, t=0), 
+        scene_camera=dict(eye=dict(x=1.5, y=-1.5, z=0.8)),
+        paper_bgcolor="rgba(0,0,0,0)", # Fondo transparente en la app
+        plot_bgcolor="rgba(0,0,0,0)"
     )
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
     # ------------------------------------------------------------------------------
-    # MOTOR DE CÁLCULO E INSUMOS (CANTOS 3L CORREGIDO)
+    # MOTOR DE CÁLCULO E INSUMOS
     # ------------------------------------------------------------------------------
     st.markdown("---")
     
@@ -259,13 +271,10 @@ with col_visual:
     
     def add_p(nombre, cant, largo, ancho, espesor, mat, nota=""):
         canto = "-"
-        # Tapa, Frentes, Puertas y Bandeja llevan cantos en todo su perímetro
         if any(palabra in nombre for palabra in ["Tapa", "Frente", "Puerta", "Bandeja"]): 
             canto = "4L"
-        # Patas, Laterales y Apoyos apoyan en tapa (1 lado ciego) -> 3 lados cantos
         elif any(palabra in nombre for palabra in ["Apoyo", "Lat "]): 
             canto = "3L"
-        # Estantes, pisos y faldón solo el frente visible
         elif any(palabra in nombre for palabra in ["Piso", "Techo", "Estante", "Faldón"]): 
             canto = "1L"
             
@@ -281,82 +290,4 @@ with col_visual:
         add_p(f"Piso Caja {pos}", 1, w, prof, espesor, "Estruct", "Carcasa")
         add_p(f"Techo Caja {pos}", 1, w, prof, espesor, "Estruct", "Carcasa")
         add_p(f"Lat Ext Caja {pos}", 1, h_int, prof, espesor, "Estruct", "Carcasa")
-        add_p(f"Lat Int Caja {pos}", 1, h_int, prof, espesor, "Estruct", "Carcasa")
-        pz.append({"Pieza": f"Fondo Caja {pos}", "Cant": 1, "Largo": h_int, "Ancho": w, "Espesor": 3, "Mat": "Fibro 3", "Cantos": "-", "Nota": "Carcasa"})
-
-    def calcular_interior(pos, w_c, conf):
-        w_frente_caja = w_c - (espesor_estruc * 2) - 4
-        if conf.get("funcion") == "Cajonera":
-            cant = conf.get("cant", 1)
-            hf = (h_util_caja_apoyo - ((cant - 1) * 3)) / cant
-            add_p(f"Frente Cajón {pos}", cant, w_frente_caja, hf, espesor_estruc, "Frentes", "")
-            
-            l_guia = min(500, max(250, int((prof_caja_apoyo - 15) // 50) * 50))
-            buy.append({"Item": f"Guías {tipo_corredera} {l_guia}mm", "Cant": cant, "Unidad": "par", "Costo": c_guia})
-            
-        elif conf.get("funcion") == "Puerta":
-            add_p(f"Puerta Caja {pos}", 1, w_frente_caja, h_util_caja_apoyo, espesor_estruc, "Frentes", "")
-            buy.append({"Item": f"Bisagras {tipo_bisagra}", "Cant": 2, "Unidad": "u.", "Costo": c_bis})
-            
-            din = conf.get("interior", {})
-            if din.get("tipo") == "Estantes":
-                add_p(f"Estante Int. {pos}", din["cant"], w_c - (espesor_estruc * 2) - 2, prof_caja_apoyo - 20, espesor_estruc, "Estruct", "Móvil")
-
-    # Procesar Izq
-    if tipo_izq == "Panel Simple": add_p("Apoyo Izq (Panel)", 1, h_estructura, w_lateral_estructura, espesor_estruc, "Estruct")
-    elif tipo_izq == "Pata en 'L'":
-        add_p("Apoyo Izq (Lat. L)", 1, h_estructura, w_lateral_estructura, espesor_estruc, "Estruct")
-        add_p("Apoyo Izq (Front. L)", 1, h_estructura, data_izq["ancho_l"] - espesor_estruc, espesor_estruc, "Estruct")
-    elif tipo_izq == "Módulo Caja":
-        despiece_carcasa_caja("Izq", data_izq["ancho_caja"], h_util_caja_apoyo, prof_caja_apoyo, espesor_estruc)
-        calcular_interior("Izq", data_izq["ancho_caja"], data_izq.get("config", {}))
-
-    # Procesar Der
-    if tipo_der == "Panel Simple": add_p("Apoyo Der (Panel)", 1, h_estructura, w_lateral_estructura, espesor_estruc, "Estruct")
-    elif tipo_der == "Pata en 'L'":
-        add_p("Apoyo Der (Lat. L)", 1, h_estructura, w_lateral_estructura, espesor_estruc, "Estruct")
-        add_p("Apoyo Der (Front. L)", 1, h_estructura, data_der["ancho_l"] - espesor_estruc, espesor_estruc, "Estruct")
-    elif tipo_der == "Módulo Caja":
-        despiece_carcasa_caja("Der", data_der["ancho_caja"], h_util_caja_apoyo, prof_caja_apoyo, espesor_estruc)
-        calcular_interior("Der", data_der["ancho_caja"], data_der.get("config", {}))
-
-    # Faldón
-    largo_interior_libre = fin_faldon - inicio_faldon
-    add_p("Faldón Anti-pandeo", 1, largo_interior_libre, h_faldon, espesor_estruc, "Estruct", "Trasero")
-
-    # Bandeja
-    if tiene_bandeja:
-        w_bandeja = largo_interior_libre - (descuento_guia * 2)
-        add_p("Bandeja Teclado", 1, w_bandeja, 350, espesor_tapa, "Tapa", "Bandeja")
-        buy.append({"Item": f"Guías {tipo_corredera} 350mm (Teclado)", "Cant": 1, "Unidad": "par", "Costo": c_guia})
-
-    # Insumos Generales
-    buy.insert(0, {"Item": "Tornillos 4x50 / Minifix", "Cant": len(pz)*4, "Unidad": "u.", "Costo": 15})
-    
-    # Cálculo aprox de metros de tapacanto con lógica 3L
-    m_canto_mm = 0
-    for p in pz:
-        if p["Cantos"] == "4L":
-            m_canto_mm += (p["Largo"]*2 + p["Ancho"]*2) * p["Cant"]
-        elif p["Cantos"] == "3L":
-            m_canto_mm += (p["Largo"]*2 + p["Ancho"]) * p["Cant"] # 2 filos largos (verticales) y 1 corto (apoyo piso)
-        elif p["Cantos"] == "1L":
-            m_canto_mm += p["Largo"] * p["Cant"]
-            
-    buy.append({"Item": f"Canto {tipo_canto}", "Cant": math.ceil((m_canto_mm/1000)*1.2), "Unidad": "m", "Costo": precio_canto})
-
-    # TABS DE RESULTADOS
-    t1, t2, t3 = st.tabs(["📝 Despiece y Cantos", "🔩 Herrajes", "💰 Presupuesto"])
-    with t1: 
-        df = pd.DataFrame(pz)
-        st.dataframe(df.style.format({"Largo": "{:.0f}", "Ancho": "{:.0f}"}), use_container_width=True, hide_index=True)
-        st.download_button("📥 Exportar CSV", df.to_csv(index=False).encode(), "corte_escritorio.csv")
-    with t2: 
-        st.dataframe(pd.DataFrame(buy).groupby(["Item","Unidad"], as_index=False).sum(), use_container_width=True, hide_index=True)
-    with t3: 
-        placas = math.ceil((sum([p["Largo"]*p["Ancho"]*p["Cant"] for p in pz if p["Mat"]!="Fibro 3"])/1e6*1.3)/4.75)
-        c_mat = (placas * precio_placa)
-        c_herr = sum([c["Costo"]*c["Cant"] for c in buy])
-        st.write(f"- Melamina base (estructura/tapa): ~{placas} placas (${c_mat:,.0f})")
-        st.write(f"- Total Insumos (Herrajes/Cantos): ${c_herr:,.0f}")
-        st.metric("PRECIO SUGERIDO VENTA", f"${(c_mat + c_herr) * margen:,.0f}")
+        add_p(f
