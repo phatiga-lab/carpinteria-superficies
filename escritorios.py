@@ -304,11 +304,11 @@ with col_visual:
     # Tapa
     nota_tapa = f"Espesor {espesor_tapa}mm"
     despiece.append({"Pieza": "Tapa Escritorio", "Cant": 1, "Largo": largo_tapa, "Ancho": prof_tapa, "Espesor": espesor_tapa, "Material": "Tapa", "Nota": nota_tapa})
-
+    
     # Estructura general
     w_lateral_estructura = estructura_y1 - estructura_y0
     prof_caja_apoyo = w_lateral_estructura # Por simplicidad conceptual, la caja ocupa toda la profundidad estructural
-
+    h_estructura = total_alto - espesor_tapa - zocalo  # <--- Esta es la línea que faltaba
     # Función auxiliar para calcular despiece de Carcasa de Caja
     def despiece_carcasa_caja(pos, w, h_int, prof, espesor):
         # Piso y Techo
