@@ -290,4 +290,81 @@ with col_visual:
         add_p(f"Piso Caja {pos}", 1, w, prof, espesor, "Estruct", "Carcasa")
         add_p(f"Techo Caja {pos}", 1, w, prof, espesor, "Estruct", "Carcasa")
         add_p(f"Lat Ext Caja {pos}", 1, h_int, prof, espesor, "Estruct", "Carcasa")
-        add_p(f
+        add_p(f"Lat Int Caja {pos}", 1, h_int, prof, espesor, "Estruct", "Carcasa")
+        pz.append({"Pieza": f"Fondo Caja {pos}", "Cant": 1, "Largo": h_int, "Ancho": w, "Espesor": 3, "Mat": "Fibro 3", "Cantos": "-", "Nota": "Carcasa"})
+
+    def calcular_interior(pos, w_c, conf):
+        w_frente_caja = w_c - (espesor_estruc * 2) - 4
+        if conf.get("funcion") == "Cajonera":
+            cant = conf.get("cant", 1)
+            hf = (h_util_caja_apoyo - ((cant - 1) * 3)) / cant
+            add_p(f"Frente Cajón {pos}", cant, w_frente_caja, hf, espesor_estruc, "Frentes", "")
+            
+            l_guia = min(500, max(250, int((prof_caja_apoyo - 15) // 50) * 50))
+            buy.append({"Item": f"Guías {tipo_corredera} {l_guia}mm", "Cant": cant, "Unidad": "par", "Costo": c_guia})
+            
+        elif conf.get("funcion") == "Puerta":
+            add_p(f"Puerta Caja {pos}", 1, w_frente_caja, h_util_caja_apoyo, espesor_estruc, "Frentes", "")
+            buy.append({"Item": f"Bisagras {tipo_bisagra}", "Cant": 2, "Unidad": "u.", "Costo": c_bis})
+            
+            din = conf.get("interior", {})
+            if din.get("tipo") == "Estantes":
+                add_p(f"Estante Int. {pos}", din["cant"], w_c - (espesor_estruc * 2) - 2, prof_caja_apoyo - 20, espesor_estruc, "Estruct", "Móvil")
+
+    # Procesar Izq
+    if tipo_izq == "Panel Simple": add_p("Apoyo Izq (Panel)", 1, h_estructura, w_lateral_estructura, espesor_estruc, "Estruct")
+    elif tipo_izq == "Pata en 'L'":
+        add_p("Apoyo Izq (Lat. L)", 1, h_estructura, w_lateral_estructura, espesor_estruc, "Estruct")
+        add_p("Apoyo Izq (Front. L)", 1, h_estructura, data_izq["ancho_l"] - espesor_estruc, espesor_estruc, "Estruct")
+    elif tipo_izq == "Módulo Caja":
+        despiece_carcasa_caja("Izq", data_izq["ancho_caja"], h_util_caja_apoyo, prof_caja_apoyo, espesor_estruc)
+        calcular_interior("Izq", data_izq["ancho_caja"], data_izq.get("config", {}))
+
+    # Procesar Der
+    if tipo_der == "Panel Simple": add_p("Apoyo Der (Panel)", 1, h_estructura, w_lateral_estructura, espesor_estruc, "Estruct")
+    elif tipo_der == "Pata en 'L'":
+        add_p("Apoyo Der (Lat. L)", 1, h_estructura, w_lateral_estructura, espesor_estruc, "Estruct")
+        add_p("Apoyo Der (Front. L)", 1, h_estructura, data_der["ancho_l"] - espesor_estruc, espesor_estruc, "Estruct")
+    elif tipo_der == "Módulo Caja":
+        despiece_carcasa_caja("Der", data_der["ancho_caja"], h_util_caja_apoyo, prof_caja_apoyo, espesor_estruc)
+        calcular_interior("Der", data_der["ancho_caja"], data_der.get("config", {}))
+
+    # Faldón
+    largo_interior_libre = fin_faldon - inicio_faldon
+    add_p("Faldón Anti-pandeo", 1, largo_interior_libre, h_faldon, espesor_estruc, "Estruct", "Trasero")
+
+    # Bandeja
+    if tiene_bandeja:
+        w_bandeja = largo_interior_libre - (descuento_guia * 2)
+        add_p("Bandeja Teclado", 1, w_bandeja, 350, espesor_tapa, "Tapa", "Bandeja")
+        buy.append({"Item": f"Guías {tipo_corredera} 350mm (Teclado)", "Cant": 1, "Unidad": "par", "Costo": c_guia})
+
+    # Insumos Generales
+    buy.insert(0, {"Item": "Tornillos 4x50 / Minifix", "Cant": len(pz)*4, "Unidad": "u.", "Costo": 15})
+    
+    m_canto_mm = 0
+    for p in pz:
+        if p["Cantos"] == "4L":
+            m_canto_mm += (p["Largo"]*2 + p["Ancho"]*2) * p["Cant"]
+        elif p["Cantos"] == "3L":
+            m_canto_mm += (p["Largo"]*2 + p["Ancho"]) * p["Cant"] 
+        elif p["Cantos"] == "1L":
+            m_canto_mm += p["Largo"] * p["Cant"]
+            
+    buy.append({"Item": f"Canto {tipo_canto}", "Cant": math.ceil((m_canto_mm/1000)*1.2), "Unidad": "m", "Costo": precio_canto})
+
+    # TABS DE RESULTADOS
+    t1, t2, t3 = st.tabs(["📝 Despiece y Cantos", "🔩 Herrajes", "💰 Presupuesto"])
+    with t1: 
+        df = pd.DataFrame(pz)
+        st.dataframe(df.style.format({"Largo": "{:.0f}", "Ancho": "{:.0f}"}), use_container_width=True, hide_index=True)
+        st.download_button("📥 Exportar CSV", df.to_csv(index=False).encode(), "corte_escritorio.csv")
+    with t2: 
+        st.dataframe(pd.DataFrame(buy).groupby(["Item","Unidad"], as_index=False).sum(), use_container_width=True, hide_index=True)
+    with t3: 
+        placas = math.ceil((sum([p["Largo"]*p["Ancho"]*p["Cant"] for p in pz if p["Mat"]!="Fibro 3"])/1e6*1.3)/4.75)
+        c_mat = (placas * precio_placa)
+        c_herr = sum([c["Costo"]*c["Cant"] for c in buy])
+        st.write(f"- Melamina base (estructura/tapa): ~{placas} placas (${c_mat:,.0f})")
+        st.write(f"- Total Insumos (Herrajes/Cantos): ${c_herr:,.0f}")
+        st.metric("PRECIO SUGERIDO VENTA", f"${(c_mat + c_herr) * margen:,.0f}")
