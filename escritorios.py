@@ -1,10 +1,9 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import math
 
 # ==============================================================================
-# CONFIGURACIÓN DE PÁGINA - PRO UI STYLE
+# CONFIGURACIÓN DE PÁGINA
 # ==============================================================================
 st.set_page_config(page_title="CarpinterIA Superficies", page_icon="🪑", layout="wide", initial_sidebar_state="expanded")
 
@@ -21,15 +20,16 @@ st.markdown("""
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3063/3063080.png", width=60)
     st.title("CarpinterIA")
-    st.caption("v0.1 - Módulo Superficies (Concepto)")
+    st.caption("v0.2 - Módulo Superficies")
     st.divider()
 
-    with st.expander("🪵 1. Parámetros de Placa", expanded=True):
-        espesor = st.selectbox("Espesor Melamina (mm)", [18, 15], index=0)
-        zocalo = st.number_input("Altura Patines/Base (mm)", value=10, step=5, help="Pequeña altura para despegar el lateral del piso")
+    with st.expander("🪵 1. Materiales y Espesores", expanded=True):
+        espesor_tapa = st.selectbox("Espesor de la Tapa (mm)", [15, 18, 25, 36, 38], index=1, help="36mm equivale a placa de 18 regruesada. 38mm es formato Tamburato.")
+        espesor_estruc = st.selectbox("Espesor Estructura (Patas/Faldón)", [15, 18, 25], index=1)
+        zocalo = st.number_input("Altura Patines/Base (mm)", value=10, step=5, help="Luz para despegar la madera del piso")
         veta_frentes = st.radio("Veta Visual Frentes", ["↔️ Horizontal", "↕️ Vertical"], index=0)
     
-    st.info("Este módulo conceptual asume construcción 100% en melamina. No incluye patas metálicas.")
+    st.info("💡 Construcción 100% en placas. Seleccioná el espesor de la tapa independiente de la estructura.")
 
 # ==============================================================================
 # LAYOUT PRINCIPAL A DOS COLUMNAS
@@ -50,12 +50,10 @@ with col_controles:
         prof_tapa = c_dim2.number_input("Profundidad Total (mm)", value=700, min_value=400, step=10)
         
         st.divider()
-        tiene_regrueso = st.toggle("🔨 Regrueso Perimetral (Visual 36mm)", value=True, help="Agrega tiras por debajo para duplicar el espesor visual en los bordes")
-        
-        st.caption("📏 Vuelos (Overhang - Cuánto sobresale la tapa)")
+        st.caption("📏 Vuelos (Cuánto sobresale la tapa de la estructura)")
         c_v1, c_v2 = st.columns(2)
         vuelo_frontal = c_v1.number_input("Vuelo Frontal (mm)", value=20, step=5)
-        vuelo_trasero = c_v2.number_input("Vuelo Trasero (mm)", value=50, step=5, help="Espacio para cables/zócalos")
+        vuelo_trasero = c_v2.number_input("Vuelo Trasero (mm)", value=50, step=5, help="Espacio para cables/pasacables")
         
         c_v3, c_v4 = st.columns(2)
         vuelo_izq = c_v3.number_input("Vuelo Izquierdo (mm)", value=10, step=5)
@@ -68,8 +66,8 @@ with col_controles:
     with st.container(border=True):
         st.markdown("🧱 **Faldón Trasero (Anti-pandeo)**")
         c_f1, c_f2 = st.columns([2, 1])
-        h_faldon = c_f1.slider("Altura del Faldón (mm)", 150, 600, 300, step=10, help="Pieza vertical trasera que une las patas y rigidiza la tapa")
-        remetido_faldon = c_f2.number_input("Remetido (mm)", value=100, step=10, help="Distancia desde el borde trasero de la estructura")
+        h_faldon = c_f1.slider("Altura del Faldón (mm)", 150, 700, 300, step=10)
+        remetido_faldon = c_f2.number_input("Remetido (mm)", value=100, step=10, help="Distancia desde el borde trasero de la pata")
 
     # Selección de Patas/Bases
     c_p1, c_p2 = st.columns(2)
@@ -77,73 +75,54 @@ with col_controles:
         st.markdown("⬅️ **Apoyo Izquierdo**")
         tipo_izq = st.selectbox("Tipo", ["Panel Simple", "Pata en 'L'", "Módulo Caja"], key="t_izq", label_visibility="collapsed")
         
-        ancho_apoyo_izq = espesor # Default Panel Simple
+        ancho_l_izq = 150 # Valor por defecto
         if tipo_izq == "Pata en 'L'":
-            ancho_apoyo_izq = st.number_input("Ancho L (mm)", value=100, step=10, key="w_l_izq")
+            ancho_l_izq = st.number_input("Ancho L Frontal (mm)", value=150, step=10, key="w_l_izq")
         elif tipo_izq == "Módulo Caja":
-            ancho_apoyo_izq = st.number_input("Ancho Caja (mm)", value=400, step=10, key="w_c_izq")
-            st.caption("Logic for drawers/doors will go here later.")
+            st.number_input("Ancho Caja (mm)", value=400, step=10, key="w_c_izq")
+            st.caption("Configuración interna de caja próximamente.")
 
     with c_p2.container(border=True):
         st.markdown("➡️ **Apoyo Derecho**")
         tipo_der = st.selectbox("Tipo", ["Panel Simple", "Pata en 'L'", "Módulo Caja"], key="t_der", label_visibility="collapsed")
         
-        ancho_apoyo_der = espesor # Default Panel Simple
+        ancho_l_der = 150
         if tipo_der == "Pata en 'L'":
-            ancho_apoyo_der = st.number_input("Ancho L (mm)", value=100, step=10, key="w_l_der")
+            ancho_l_der = st.number_input("Ancho L Frontal (mm)", value=150, step=10, key="w_l_der")
         elif tipo_der == "Módulo Caja":
-            ancho_apoyo_der = st.number_input("Ancho Caja (mm)", value=400, step=10, key="w_c_der")
-            st.caption("Logic for drawers/doors will go here later.")
+            st.number_input("Ancho Caja (mm)", value=400, step=10, key="w_c_der")
+            st.caption("Configuración interna de caja próximamente.")
 
 # ------------------------------------------------------------------------------
-# ZONA DERECHA: VISUALIZADOR 3D CONCEPTUAL
+# ZONA DERECHA: VISUALIZADOR 3D AVANZADO
 # ------------------------------------------------------------------------------
 with col_visual:
-    st.header("👁️ Vista Previa")
+    st.header("👁️ Vista Previa 3D")
     
-    # Cálculos Geométricos para la visualización
-    # Coordenadas de la Tapa (Centrada en X=0, Y=0 por simplicidad conceptual)
+    # Coordenadas maestras
     tapa_x0 = -largo_tapa / 2
     tapa_x1 = largo_tapa / 2
     tapa_y0 = -prof_tapa / 2
     tapa_y1 = prof_tapa / 2
     
-    espesor_visual_tapa = espesor * 2 if tiene_regrueso else espesor
-    total_alto = 750 # Altura estándar de escritorio para la visualización
+    total_alto = 750 # Altura estándar de escritorio terminado
+    h_estructura = total_alto - espesor_tapa - zocalo
     
-    # Coordenadas de la estructura (restando vuelos)
+    # Restando vuelos para saber dónde empieza la estructura de patas
     estructura_x0 = tapa_x0 + vuelo_izq
     estructura_x1 = tapa_x1 - vuelo_der
     estructura_y0 = tapa_y0 + vuelo_frontal
     estructura_y1 = tapa_y1 - vuelo_trasero
     
-    estructura_ancho = estructura_x1 - estructura_x0
-    estructura_prof = estructura_y1 - estructura_y0
-    estructura_alto = total_alto - espesor_visual_tapa - zocalo
-    
-    # Gráfico
     fig = go.Figure()
     
-    # 1. DIBUJAR TAPA (Placa horizontal superior)
-    # Color madera claro
+    # Colores
     color_tapa = "#DEB887"
-    color_linea = "#5D4037"
+    color_estructura = "#A0522D" 
+    color_caja = "#85C1E9"
     
-    # Tapa Principal
-    fig.add_trace(go.Mesh3d(
-        x=[tapa_x0, tapa_x1, tapa_x1, tapa_x0, tapa_x0, tapa_x1, tapa_x1, tapa_x0],
-        y=[tapa_y0, tapa_y0, tapa_y1, tapa_y1, tapa_y0, tapa_y0, tapa_y1, tapa_y1],
-        z=[total_alto-espesor_visual_tapa, total_alto-espesor_visual_tapa, total_alto-espesor_visual_tapa, total_alto-espesor_visual_tapa, total_alto, total_alto, total_alto, total_alto],
-        i=[7, 0, 0, 0, 4, 4, 3, 3, 7, 2, 6, 6],
-        j=[3, 4, 1, 2, 5, 6, 2, 3, 6, 7, 1, 2],
-        k=[0, 7, 2, 3, 6, 7, 1, 0, 2, 5, 5, 1],
-        opacity=1, color=color_tapa, flatshading=True, name="Tapa"
-    ))
-
-    # 2. DIBUJAR APOYO IZQUIERDO (Conceptual)
-    color_estructura = "#A0522D" # Madera más oscura siena
-    
-    def dibujar_cubo_coords(x0, x1, y0, y1, z0, z1, color, nombre):
+    # Función base para dibujar cualquier placa en 3D
+    def dibujar_placa(x0, x1, y0, y1, z0, z1, color, nombre):
         fig.add_trace(go.Mesh3d(
             x=[x0, x1, x1, x0, x0, x1, x1, x0],
             y=[y0, y0, y1, y1, y0, y0, y1, y1],
@@ -154,50 +133,81 @@ with col_visual:
             opacity=1, color=color, flatshading=True, name=nombre
         ))
 
-    # Apoyo Izq (Simplificado a un bloque según ancho)
-    dibujar_cubo_coords(estructura_x0, estructura_x0 + ancho_apoyo_izq, estructura_y0, estructura_y1, zocalo, total_alto-espesor_visual_tapa, color_estructura, "Apoyo Izq")
-    
-    # Apoyo Der (Simplificado a un bloque según ancho)
-    dibujar_cubo_coords(estructura_x1 - ancho_apoyo_der, estructura_x1, estructura_y0, estructura_y1, zocalo, total_alto-espesor_visual_tapa, color_estructura, "Apoyo Der")
+    # 1. DIBUJAR TAPA
+    dibujar_placa(tapa_x0, tapa_x1, tapa_y0, tapa_y1, total_alto-espesor_tapa, total_alto, color_tapa, "Tapa")
 
-    # 3. DIBUJAR FALDÓN TRASERO
+    # 2. DIBUJAR APOYO IZQUIERDO
+    if tipo_izq == "Panel Simple":
+        dibujar_placa(estructura_x0, estructura_x0 + espesor_estruc, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_estructura, "Lateral Izq")
+    elif tipo_izq == "Pata en 'L'":
+        # Placa paralela al lateral
+        dibujar_placa(estructura_x0, estructura_x0 + espesor_estruc, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_estructura, "L-Lat Izq")
+        # Placa frontal formando la L (hacia adentro)
+        dibujar_placa(estructura_x0 + espesor_estruc, estructura_x0 + ancho_l_izq, estructura_y0, estructura_y0 + espesor_estruc, zocalo, total_alto-espesor_tapa, color_estructura, "L-Front Izq")
+    elif tipo_izq == "Módulo Caja":
+        w_caja_i = st.session_state.get("w_c_izq", 400)
+        dibujar_placa(estructura_x0, estructura_x0 + w_caja_i, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_caja, "Cajonera Izq")
+
+    # 3. DIBUJAR APOYO DERECHO
+    if tipo_der == "Panel Simple":
+        dibujar_placa(estructura_x1 - espesor_estruc, estructura_x1, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_estructura, "Lateral Der")
+    elif tipo_der == "Pata en 'L'":
+        dibujar_placa(estructura_x1 - espesor_estruc, estructura_x1, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_estructura, "L-Lat Der")
+        dibujar_placa(estructura_x1 - ancho_l_der, estructura_x1 - espesor_estruc, estructura_y0, estructura_y0 + espesor_estruc, zocalo, total_alto-espesor_tapa, color_estructura, "L-Front Der")
+    elif tipo_der == "Módulo Caja":
+        w_caja_d = st.session_state.get("w_c_der", 400)
+        dibujar_placa(estructura_x1 - w_caja_d, estructura_x1, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_caja, "Cajonera Der")
+
+    # 4. DIBUJAR FALDÓN TRASERO
     y_faldon_trasero = estructura_y1 - remetido_faldon
-    dibujar_cubo_coords(estructura_x0 + ancho_apoyo_izq, estructura_x1 - ancho_apoyo_der, y_faldon_trasero - espesor, y_faldon_trasero, total_alto-espesor_visual_tapa-h_faldon, total_alto-espesor_visual_tapa, color_estructura, "Faldón")
+    
+    # Calcular dónde empieza y termina el faldón dependiendo de los apoyos elegidos
+    inicio_faldon = estructura_x0 + (espesor_estruc if tipo_izq != "Módulo Caja" else st.session_state.get("w_c_izq", 400))
+    fin_faldon = estructura_x1 - (espesor_estruc if tipo_der != "Módulo Caja" else st.session_state.get("w_c_der", 400))
+    
+    dibujar_placa(inicio_faldon, fin_faldon, y_faldon_trasero - espesor_estruc, y_faldon_trasero, total_alto-espesor_tapa-h_faldon, total_alto-espesor_tapa, color_estructura, "Faldón")
 
-    # Configuración de escena
+    # Configuración de escena 3D
     max_dim = max(largo_tapa, total_alto)
     fig.update_layout(
         scene=dict(
-            xaxis=dict(nticks=4, range=[-max_dim/2-100, max_dim/2+100], backgroundcolor="rgb(200, 200, 230)", gridcolor="white", showbackground=True, zerolinecolor="white"),
-            yaxis=dict(nticks=4, range=[-max_dim/2-100, max_dim/2+100], backgroundcolor="rgb(230, 200, 230)", gridcolor="white", showbackground=True, zerolinecolor="white"),
-            zaxis=dict(nticks=4, range=[0, max_dim+100], backgroundcolor="rgb(230, 230, 200)", gridcolor="white", showbackground=True, zerolinecolor="white"),
-            aspectmode='data' # Mantiene proporciones reales
+            xaxis=dict(nticks=4, range=[-max_dim/2-100, max_dim/2+100], backgroundcolor="rgb(240, 240, 245)", gridcolor="white", showbackground=True),
+            yaxis=dict(nticks=4, range=[-max_dim/2-100, max_dim/2+100], backgroundcolor="rgb(245, 240, 245)", gridcolor="white", showbackground=True),
+            zaxis=dict(nticks=4, range=[0, max_dim+100], backgroundcolor="rgb(245, 245, 240)", gridcolor="white", showbackground=True),
+            aspectmode='data'
         ),
-        margin=dict(r=10, l=10, b=10, t=30),
-        scene_camera=dict(eye=dict(x=1.5, y=-1.5, z=1)) # Ángulo de cámara por defecto
+        margin=dict(r=0, l=0, b=0, t=0),
+        scene_camera=dict(eye=dict(x=1.8, y=-1.5, z=0.8)) # Ángulo isométrico mejorado
     )
 
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-    # --- ZONA DE RESULTADOS CONCEPTUALES ---
+    # --- ZONA DE RESULTADOS ---
     st.markdown("---")
-    st.subheader("📋 Resumen de Materiales (Concepto)")
+    st.subheader("📋 Despiece Inicial (Superficies)")
     
-    # Generación de "Despiece" simplificado
     despiece = []
     
     # Tapa
-    nota_tapa = "Regrueso 36mm" if tiene_regrueso else "Simple 18mm"
-    despiece.append({"Pieza": "Tapa Escritorio", "Cant": 1, "Largo": largo_tapa, "Ancho": prof_tapa, "Nota": nota_tapa})
-    
-    if tiene_regrueso:
-        despiece.append({"Pieza": "Tiras Regrueso Largo", "Cant": 2, "Largo": largo_tapa, "Ancho": 70, "Nota": "Pegar debajo"})
-        despiece.append({"Pieza": "Tiras Regrueso Corto", "Cant": 2, "Largo": prof_tapa - 140, "Ancho": 70, "Nota": "Pegar debajo"})
+    nota_tapa = "Tamburato / Especial" if espesor_tapa >= 36 else "Melamina Estándar"
+    despiece.append({"Pieza": "Tapa Escritorio", "Cant": 1, "Largo": largo_tapa, "Ancho": prof_tapa, "Espesor": espesor_tapa, "Nota": nota_tapa})
 
-    # Estructura (Muy simplificado por ser concepto)
-    h_estructura = total_alto - espesor_visual_tapa - zocalo
-    despiece.append({"Pieza": f"Apoyo Izq ({tipo_izq})", "Cant": 1, "Largo": h_estructura, "Ancho": estructura_prof, "Nota": f"W: {ancho_apoyo_izq}mm"})
-    despiece.append({"Pieza": f"Apoyo Der ({tipo_der})", "Cant": 1, "Largo": h_estructura, "Ancho": estructura_prof, "Nota": f"W: {ancho_apoyo_der}mm"})
-    despiece.append({"Pieza": "Faldón Estructural", "Cant": 1, "Largo": estructura_ancho - ancho_apoyo_izq - ancho_apoyo_der, "Ancho": h_faldon, "Nota": "Trasero"})
+    # Estructura
+    w_lateral = estructura_y1 - estructura_y0
+    
+    if tipo_izq == "Panel Simple":
+        despiece.append({"Pieza": "Apoyo Izq (Panel)", "Cant": 1, "Largo": h_estructura, "Ancho": w_lateral, "Espesor": espesor_estruc})
+    elif tipo_izq == "Pata en 'L'":
+        despiece.append({"Pieza": "Apoyo Izq (Lateral L)", "Cant": 1, "Largo": h_estructura, "Ancho": w_lateral, "Espesor": espesor_estruc})
+        despiece.append({"Pieza": "Apoyo Izq (Frente L)", "Cant": 1, "Largo": h_estructura, "Ancho": ancho_l_izq - espesor_estruc, "Espesor": espesor_estruc})
+        
+    if tipo_der == "Panel Simple":
+        despiece.append({"Pieza": "Apoyo Der (Panel)", "Cant": 1, "Largo": h_estructura, "Ancho": w_lateral, "Espesor": espesor_estruc})
+    elif tipo_der == "Pata en 'L'":
+        despiece.append({"Pieza": "Apoyo Der (Lateral L)", "Cant": 1, "Largo": h_estructura, "Ancho": w_lateral, "Espesor": espesor_estruc})
+        despiece.append({"Pieza": "Apoyo Der (Frente L)", "Cant": 1, "Largo": h_estructura, "Ancho": ancho_l_der - espesor_estruc, "Espesor": espesor_estruc})
+
+    largo_faldon = fin_faldon - inicio_faldon
+    despiece.append({"Pieza": "Faldón Anti-pandeo", "Cant": 1, "Largo": largo_faldon, "Ancho": h_faldon, "Espesor": espesor_estruc})
 
     st.dataframe(pd.DataFrame(despiece), use_container_width=True, hide_index=True)
