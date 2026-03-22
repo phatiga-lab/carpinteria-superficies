@@ -6,7 +6,7 @@ import math
 # ==============================================================================
 # CONFIGURACIÓN DE PÁGINA
 # ==============================================================================
-st.set_page_config(page_title="CarpinterIA Superficies V0.7", page_icon="🪑", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="CarpinterIA Superficies V0.8", page_icon="🪑", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
@@ -46,7 +46,7 @@ def ui_config_caja(key_prefix, h_util_caja):
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3063/3063080.png", width=60)
     st.title("CarpinterIA")
-    st.caption("v0.7 - Clean UI & Tooltips")
+    st.caption("v0.8 - Sincronización 3D/Corte")
     st.divider()
 
     with st.expander("🪵 1. Materiales y Espesores", expanded=True):
@@ -153,7 +153,7 @@ with col_controles:
         else:
             max_remetido_permitido = max_remetido_base
             
-        remetido_faldon = c_f2.number_input("Remetido (mm)", min_value=0, max_value=max_remetido_permitido, value=min(50, max_remetido_permitido), step=10, help="El sistema restringe automáticamente este valor para evitar colisiones.")
+        remetido_faldon = c_f2.number_input("Remetido (mm)", min_value=0, max_value=max_remetido_permitido, value=min(50, max_remetido_permitido), step=10)
 
 # ------------------------------------------------------------------------------
 # ZONA DERECHA: VISUALIZADOR 3D
@@ -183,27 +183,41 @@ with col_visual:
         fig.add_trace(go.Mesh3d(x=[x0,x1,x1,x0,x0,x1,x1,x0], y=[y0,y0,y1,y1,y0,y0,y1,y1], z=[z0,z0,z0,z0,z1,z1,z1,z1],
             i=[7,0,0,0,4,4,3,3,7,2,6,6], j=[3,4,1,2,5,6,2,3,6,7,1,2], k=[0,7,2,3,6,7,1,0,2,5,5,1],
             opacity=opacidad, color=color, flatshading=True, name=nombre,
-            hoverinfo="text", text=hover_text)) # APLICACIÓN DEL HOVER LIMPIO
+            hoverinfo="text", text=hover_text)) 
 
     # Tapa
     dibujar_placa(tapa_x0, tapa_x1, tapa_y0, tapa_y1, total_alto-espesor_tapa, total_alto, color_tapa, "Tapa Escritorio")
 
+    # FUNCIÓN ACTUALIZADA: Geometría exacta para los frentes
     def interior_conceptual(x0, x1, y0, y1, z_base, h_util, config):
         func = config.get("funcion")
+        
+        # Geometría del frente interno (descuenta luces laterales)
+        f_x0 = x0 + 2
+        f_x1 = x1 - 2
+        f_y0 = y0
+        f_y1 = y0 + espesor_estruc # Aplica el espesor real de la placa
+        
         if func == "Cajonera":
-            cant = config.get("cant", 1); hu_frente = h_util / cant
+            cant = config.get("cant", 1)
+            # Altura exacta descontando las luces de 3mm entre cajones
+            hu_frente = (h_util - ((cant - 1) * 3)) / cant
+            
             for k in range(cant):
-                z_f_0 = z_base + (k * hu_frente) + 2; z_f_1 = z_base + ((k+1) * hu_frente) - 2
-                dibujar_placa(x0, x1, y0-2, y0+5, z_f_0, z_f_1, color_caja_frente, f"Frente Cajón {k+1}", 0.7)
+                z_f_0 = z_base + (k * hu_frente) + (k * 3)
+                z_f_1 = z_f_0 + hu_frente
+                dibujar_placa(f_x0, f_x1, f_y0, f_y1, z_f_0, z_f_1, color_caja_frente, f"Frente Cajón {k+1}", 0.85)
+                
         elif func == "Puerta":
-            dibujar_placa(x0, x1, y0-2, y0+5, z_base+2, z_base+h_util-2, color_caja_frente, "Puerta", 0.7)
+            dibujar_placa(f_x0, f_x1, f_y0, f_y1, z_base, z_base + h_util, color_caja_frente, "Puerta", 0.7)
+            
             din = config.get("interior", {})
             if din.get("tipo") == "Estantes":
                 cant_e = din.get("cant", 1); p = h_util / (cant_e + 1)
                 for k in range(cant_e):
                     y_e = z_base + (p * (k+1))
-                    fig.add_shape(type="line", x0=x0+5, y0=y0+10, x1=x1-5, y1=y1-10, xref="x", yref="y")
-                    dibujar_placa(x0+5, x1-5, y0+10, y1-10, y_e, y_e+espesor_estruc, color_estructura, f"Estante Int {k+1}", 0.5) 
+                    # El estante interno va un poco más atrás para no chocar con la puerta
+                    dibujar_placa(x0+2, x1-2, y0 + espesor_estruc + 5, y1-5, y_e, y_e+espesor_estruc, color_estructura, f"Estante Int {k+1}", 0.5)
 
     # Izq
     if tipo_izq == "Panel Simple": dibujar_placa(estructura_x0, estructura_x0 + espesor_estruc, estructura_y0, estructura_y1, zocalo, total_alto-espesor_tapa, color_estructura, "Lateral Izquierdo")
@@ -242,23 +256,13 @@ with col_visual:
         z_bandeja = total_alto - espesor_tapa - 60 
         dibujar_placa(inicio_faldon + 20, fin_faldon - 20, estructura_y0, estructura_y0 + 350, z_bandeja, z_bandeja + espesor_tapa, color_tapa, "Bandeja Teclado")
 
-    # CONFIGURACIÓN DE ESCENA LIMPIA (SIN EJES NI FONDOS)
+    # CONFIGURACIÓN DE ESCENA LIMPIA
     max_dim = max(largo_tapa, total_alto)
-    
-    # Dict para ocultar completamente cada eje
     no_axis = dict(showbackground=False, showgrid=False, zeroline=False, showticklabels=False, title="", visible=False)
-    
     fig.update_layout(
-        scene=dict(
-            xaxis=no_axis,
-            yaxis=no_axis,
-            zaxis=no_axis,
-            aspectmode='data'
-        ),
-        margin=dict(r=0, l=0, b=0, t=0), 
-        scene_camera=dict(eye=dict(x=1.5, y=-1.5, z=0.8)),
-        paper_bgcolor="rgba(0,0,0,0)", # Fondo transparente en la app
-        plot_bgcolor="rgba(0,0,0,0)"
+        scene=dict(xaxis=no_axis, yaxis=no_axis, zaxis=no_axis, aspectmode='data'),
+        margin=dict(r=0, l=0, b=0, t=0), scene_camera=dict(eye=dict(x=1.5, y=-1.5, z=0.8)),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)"
     )
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
