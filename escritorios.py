@@ -6,7 +6,7 @@ import math
 # ==============================================================================
 # CONFIGURACIÓN DE PÁGINA
 # ==============================================================================
-st.set_page_config(page_title="CarpinterIA Superficies V0.5", page_icon="🪑", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="CarpinterIA Superficies V0.6", page_icon="🪑", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
@@ -46,7 +46,7 @@ def ui_config_caja(key_prefix, h_util_caja):
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3063/3063080.png", width=60)
     st.title("CarpinterIA")
-    st.caption("v0.5 - Ergonomía y Accesorios")
+    st.caption("v0.6 - Colisiones y Cantos")
     st.divider()
 
     with st.expander("🪵 1. Materiales y Espesores", expanded=True):
@@ -89,8 +89,7 @@ with col_controles:
         c_dim1, c_dim2, c_dim3 = st.columns(3)
         largo_tapa = c_dim1.number_input("Largo Total (mm)", value=1500, min_value=600, step=10)
         prof_tapa = c_dim2.number_input("Prof. Total (mm)", value=700, min_value=400, step=10)
-        # NUEVO CONTROL DE ALTURA
-        total_alto = c_dim3.number_input("Alto Final (mm)", value=750, min_value=500, max_value=1200, step=10, help="Distancia desde el piso hasta arriba de la tapa")
+        total_alto = c_dim3.number_input("Alto Final (mm)", value=750, min_value=500, max_value=1200, step=10)
         
         st.divider()
         st.caption("📏 Vuelos (Overhang)")
@@ -143,7 +142,23 @@ with col_controles:
         st.divider()
         c_f1, c_f2 = st.columns([2, 1])
         h_faldon = c_f1.slider("Altura Faldón Trasero (mm)", 150, int(h_estructura), 300, step=10)
-        remetido_faldon = c_f2.number_input("Remetido (mm)", value=50, step=10)
+        
+        # CÁLCULO DE LÍMITE FÍSICO DE COLISIÓN (REMETIDO)
+        max_remetido_base = int(prof_tapa / 2) # Como máximo hasta la mitad de la tapa
+        
+        if tiene_bandeja:
+            # estructura_prof es el espacio total de las patas.
+            # 350mm bandeja + 20mm luz seguridad
+            max_remetido_bandeja = int(estructura_prof - 370)
+            max_remetido_permitido = min(max_remetido_base, max_remetido_bandeja)
+            
+            if max_remetido_permitido < 0:
+                st.error("❌ El escritorio es muy poco profundo para acomodar bandeja y faldón. Achique vuelos o aumente profundidad.")
+                max_remetido_permitido = 0
+        else:
+            max_remetido_permitido = max_remetido_base
+            
+        remetido_faldon = c_f2.number_input("Remetido (mm)", min_value=0, max_value=max_remetido_permitido, value=min(50, max_remetido_permitido), step=10, help="El sistema restringe automáticamente este valor para evitar colisiones.")
 
 # ------------------------------------------------------------------------------
 # ZONA DERECHA: VISUALIZADOR 3D
@@ -220,8 +235,8 @@ with col_visual:
 
     # Bandeja 3D
     if tiene_bandeja:
-        z_bandeja = total_alto - espesor_tapa - 60 # Baja unos cm para dar lugar a las manos
-        dibujar_placa(inicio_faldon + 20, fin_faldon - 20, tapa_y0 + 20, tapa_y0 + 350, z_bandeja, z_bandeja + espesor_tapa, color_tapa, "Bandeja")
+        z_bandeja = total_alto - espesor_tapa - 60 
+        dibujar_placa(inicio_faldon + 20, fin_faldon - 20, estructura_y0, estructura_y0 + 350, z_bandeja, z_bandeja + espesor_tapa, color_tapa, "Bandeja")
 
     max_dim = max(largo_tapa, total_alto)
     fig.update_layout(
@@ -236,19 +251,21 @@ with col_visual:
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
     # ------------------------------------------------------------------------------
-    # MOTOR DE CÁLCULO E INSUMOS
+    # MOTOR DE CÁLCULO E INSUMOS (CANTOS 3L CORREGIDO)
     # ------------------------------------------------------------------------------
     st.markdown("---")
     
     pz = []; buy = []
     
-    # Helper Inteligente para asignar Cantos Automáticos (ACTUALIZADO)
     def add_p(nombre, cant, largo, ancho, espesor, mat, nota=""):
         canto = "-"
-        # Laterales, Apoyos y Tapa/Puertas llevan 4 lados
-        if any(palabra in nombre for palabra in ["Tapa", "Frente", "Puerta", "Apoyo", "Bandeja", "Lat"]): 
+        # Tapa, Frentes, Puertas y Bandeja llevan cantos en todo su perímetro
+        if any(palabra in nombre for palabra in ["Tapa", "Frente", "Puerta", "Bandeja"]): 
             canto = "4L"
-        # Estantes, pisos, faldón llevan 1 lado (el visible)
+        # Patas, Laterales y Apoyos apoyan en tapa (1 lado ciego) -> 3 lados cantos
+        elif any(palabra in nombre for palabra in ["Apoyo", "Lat "]): 
+            canto = "3L"
+        # Estantes, pisos y faldón solo el frente visible
         elif any(palabra in nombre for palabra in ["Piso", "Techo", "Estante", "Faldón"]): 
             canto = "1L"
             
@@ -315,9 +332,18 @@ with col_visual:
 
     # Insumos Generales
     buy.insert(0, {"Item": "Tornillos 4x50 / Minifix", "Cant": len(pz)*4, "Unidad": "u.", "Costo": 15})
-    # Cálculo aprox de metros de tapacanto
-    m_canto = sum([(p["Largo"]*2 + p["Ancho"]*2 if p["Cantos"]=="4L" else p["Largo"]) * p["Cant"] for p in pz if p["Cantos"]!="-"])/1000
-    buy.append({"Item": f"Canto {tipo_canto}", "Cant": math.ceil(m_canto*1.2), "Unidad": "m", "Costo": precio_canto})
+    
+    # Cálculo aprox de metros de tapacanto con lógica 3L
+    m_canto_mm = 0
+    for p in pz:
+        if p["Cantos"] == "4L":
+            m_canto_mm += (p["Largo"]*2 + p["Ancho"]*2) * p["Cant"]
+        elif p["Cantos"] == "3L":
+            m_canto_mm += (p["Largo"]*2 + p["Ancho"]) * p["Cant"] # 2 filos largos (verticales) y 1 corto (apoyo piso)
+        elif p["Cantos"] == "1L":
+            m_canto_mm += p["Largo"] * p["Cant"]
+            
+    buy.append({"Item": f"Canto {tipo_canto}", "Cant": math.ceil((m_canto_mm/1000)*1.2), "Unidad": "m", "Costo": precio_canto})
 
     # TABS DE RESULTADOS
     t1, t2, t3 = st.tabs(["📝 Despiece y Cantos", "🔩 Herrajes", "💰 Presupuesto"])
